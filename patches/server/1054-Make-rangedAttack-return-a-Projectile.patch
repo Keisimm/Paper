@@ -1,0 +1,389 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Keisimm <michal6444t@gmail.com>
+Date: Sat, 9 Mar 2024 04:49:19 +0100
+Subject: [PATCH] Make rangedAttack return a Projectile
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/entity/CraftRangedEntity.java b/src/main/java/com/destroystokyo/paper/entity/CraftRangedEntity.java
+index d7a8eb1b8f24ed2741ae9dae62d3f6146f273e1d..4b86db50e5bcf839d1be5237627c179f7c3bca8e 100644
+--- a/src/main/java/com/destroystokyo/paper/entity/CraftRangedEntity.java
++++ b/src/main/java/com/destroystokyo/paper/entity/CraftRangedEntity.java
+@@ -9,8 +9,9 @@ public interface CraftRangedEntity<T extends Mob & RangedAttackMob> extends Rang
+     T getHandle();
+ 
+     @Override
+-    default void rangedAttack(LivingEntity target, float charge) {
+-        getHandle().performRangedAttack(((CraftLivingEntity) target).getHandle(), charge);
++    default org.bukkit.entity.Projectile rangedAttack(LivingEntity target, float charge) {
++        net.minecraft.world.entity.projectile.Projectile entity = getHandle().performRangedAttack(((CraftLivingEntity) target).getHandle(), charge);
++        return entity == null ? null : (org.bukkit.entity.Projectile) entity.getBukkitEntity();
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/entity/animal/SnowGolem.java b/src/main/java/net/minecraft/world/entity/animal/SnowGolem.java
+index 9eab1170cb123d3b60a02314702516704f959ab7..bf3e4591c9a0db9b2fc19bf55dd95cf788f271be 100644
+--- a/src/main/java/net/minecraft/world/entity/animal/SnowGolem.java
++++ b/src/main/java/net/minecraft/world/entity/animal/SnowGolem.java
+@@ -129,7 +129,7 @@ public class SnowGolem extends AbstractGolem implements Shearable, RangedAttackM
+     }
+ 
+     @Override
+-    public void performRangedAttack(LivingEntity target, float pullProgress) {
++    public net.minecraft.world.entity.projectile.Projectile performRangedAttack(LivingEntity target, float pullProgress) { // Paper - Make rangedAttack return a Projectile
+         Snowball entitysnowball = new Snowball(this.level(), this);
+         double d0 = target.getEyeY() - 1.100000023841858D;
+         double d1 = target.getX() - this.getX();
+@@ -140,6 +140,7 @@ public class SnowGolem extends AbstractGolem implements Shearable, RangedAttackM
+         entitysnowball.shoot(d1, d2 + d4, d3, 1.6F, 12.0F);
+         this.playSound(SoundEvents.SNOW_GOLEM_SHOOT, 1.0F, 0.4F / (this.getRandom().nextFloat() * 0.4F + 0.8F));
+         this.level().addFreshEntity(entitysnowball);
++        return entitysnowball; // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/entity/animal/horse/Llama.java b/src/main/java/net/minecraft/world/entity/animal/horse/Llama.java
+index 6623674136b0f865d5b3d7a10d3bf05793b82f87..b6acb12c40c2706c58f3dcc791580052163ffca3 100644
+--- a/src/main/java/net/minecraft/world/entity/animal/horse/Llama.java
++++ b/src/main/java/net/minecraft/world/entity/animal/horse/Llama.java
+@@ -392,7 +392,7 @@ public class Llama extends AbstractChestedHorse implements VariantHolder<Llama.V
+         return (Llama) EntityType.LLAMA.create(this.level());
+     }
+ 
+-    private void spit(LivingEntity target) {
++    private LlamaSpit spit(LivingEntity target) { // Paper - Make rangedAttack return a Projectile
+         LlamaSpit entityllamaspit = new LlamaSpit(this.level(), this);
+         double d0 = target.getX() - this.getX();
+         double d1 = target.getY(0.3333333333333333D) - entityllamaspit.getY();
+@@ -406,6 +406,7 @@ public class Llama extends AbstractChestedHorse implements VariantHolder<Llama.V
+ 
+         this.level().addFreshEntity(entityllamaspit);
+         this.didSpit = true;
++        return entityllamaspit; // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     void setDidSpit(boolean spit) {
+@@ -482,8 +483,8 @@ public class Llama extends AbstractChestedHorse implements VariantHolder<Llama.V
+     }
+ 
+     @Override
+-    public void performRangedAttack(LivingEntity target, float pullProgress) {
+-        this.spit(target);
++    public net.minecraft.world.entity.projectile.Projectile performRangedAttack(LivingEntity target, float pullProgress) { // Paper - Make rangedAttack return a Projectile
++        return this.spit(target); // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/entity/boss/wither/WitherBoss.java b/src/main/java/net/minecraft/world/entity/boss/wither/WitherBoss.java
+index 12440ee2dccc0a697fb403765f2e1b987ccc0283..f0a7f98197aa28b985c4455f193cffea90dad52f 100644
+--- a/src/main/java/net/minecraft/world/entity/boss/wither/WitherBoss.java
++++ b/src/main/java/net/minecraft/world/entity/boss/wither/WitherBoss.java
+@@ -464,11 +464,13 @@ public class WitherBoss extends Monster implements PowerableMob, RangedAttackMob
+         return prevAngle + f3;
+     }
+ 
+-    private void performRangedAttack(int headIndex, LivingEntity target) {
+-        this.performRangedAttack(headIndex, target.getX(), target.getY() + (double) target.getEyeHeight() * 0.5D, target.getZ(), headIndex == 0 && this.random.nextFloat() < 0.001F);
++    // Paper start - Make rangedAttack return a Projectile
++
++    private WitherSkull performRangedAttack(int headIndex, LivingEntity target) {
++        return this.performRangedAttack(headIndex, target.getX(), target.getY() + (double) target.getEyeHeight() * 0.5D, target.getZ(), headIndex == 0 && this.random.nextFloat() < 0.001F);
+     }
+ 
+-    private void performRangedAttack(int headIndex, double targetX, double targetY, double targetZ, boolean charged) {
++    private WitherSkull performRangedAttack(int headIndex, double targetX, double targetY, double targetZ, boolean charged) {
+         if (!this.isSilent()) {
+             this.level().levelEvent((Player) null, 1024, this.blockPosition(), 0);
+         }
+@@ -488,13 +490,16 @@ public class WitherBoss extends Monster implements PowerableMob, RangedAttackMob
+ 
+         entitywitherskull.setPosRaw(d3, d4, d5);
+         this.level().addFreshEntity(entitywitherskull);
++        return entitywitherskull;
+     }
+ 
+     @Override
+-    public void performRangedAttack(LivingEntity target, float pullProgress) {
+-        this.performRangedAttack(0, target);
++    public net.minecraft.world.entity.projectile.Projectile performRangedAttack(LivingEntity target, float pullProgress) {
++        return this.performRangedAttack(0, target);
+     }
+ 
++    // Paper end - Make rangedAttack return a Projectile
++
+     @Override
+     public boolean hurt(DamageSource source, float amount) {
+         if (this.isInvulnerableTo(source)) {
+diff --git a/src/main/java/net/minecraft/world/entity/monster/AbstractSkeleton.java b/src/main/java/net/minecraft/world/entity/monster/AbstractSkeleton.java
+index 586e3e92ccc275446df6dbbff9bf010a37a9aa8f..c03ee3e53054375c40c53530747d9a4c780328da 100644
+--- a/src/main/java/net/minecraft/world/entity/monster/AbstractSkeleton.java
++++ b/src/main/java/net/minecraft/world/entity/monster/AbstractSkeleton.java
+@@ -197,7 +197,7 @@ public abstract class AbstractSkeleton extends Monster implements RangedAttackMo
+     }
+ 
+     @Override
+-    public void performRangedAttack(LivingEntity target, float pullProgress) {
++    public net.minecraft.world.entity.projectile.Projectile performRangedAttack(LivingEntity target, float pullProgress) { // Paper - Make rangedAttack return a Projectile
+         ItemStack itemstack = this.getProjectile(this.getItemInHand(ProjectileUtil.getWeaponHoldingHand(this, Items.BOW)));
+         AbstractArrow entityarrow = this.getArrow(itemstack, pullProgress);
+         double d0 = target.getX() - this.getX();
+@@ -210,7 +210,7 @@ public abstract class AbstractSkeleton extends Monster implements RangedAttackMo
+         org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(this, this.getMainHandItem(), entityarrow.getPickupItem(), entityarrow, net.minecraft.world.InteractionHand.MAIN_HAND, 0.8F, true); // Paper
+         if (event.isCancelled()) {
+             event.getProjectile().remove();
+-            return;
++            return null; // Paper - Make rangedAttack return a Projectile
+         }
+ 
+         if (event.getProjectile() == entityarrow.getBukkitEntity()) {
+@@ -219,6 +219,7 @@ public abstract class AbstractSkeleton extends Monster implements RangedAttackMo
+         // CraftBukkit end
+         this.playSound(SoundEvents.SKELETON_SHOOT, 1.0F, 1.0F / (this.getRandom().nextFloat() * 0.4F + 0.8F));
+         // this.level().addFreshEntity(entityarrow); // CraftBukkit - moved up
++        return entityarrow; // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     protected AbstractArrow getArrow(ItemStack arrow, float damageModifier) {
+diff --git a/src/main/java/net/minecraft/world/entity/monster/CrossbowAttackMob.java b/src/main/java/net/minecraft/world/entity/monster/CrossbowAttackMob.java
+index bae812231018225ef5469228c28a4d2847898cff..3eac335ce0f51e04a54a53253ad79d1ac49fb371 100644
+--- a/src/main/java/net/minecraft/world/entity/monster/CrossbowAttackMob.java
++++ b/src/main/java/net/minecraft/world/entity/monster/CrossbowAttackMob.java
+@@ -23,14 +23,16 @@ public interface CrossbowAttackMob extends RangedAttackMob {
+ 
+     void onCrossbowAttackPerformed();
+ 
+-    default void performCrossbowAttack(LivingEntity entity, float speed) {
++    default Projectile performCrossbowAttack(LivingEntity entity, float speed) { // Paper - Make rangedAttack return a Projectile
+         InteractionHand interactionHand = ProjectileUtil.getWeaponHoldingHand(entity, Items.CROSSBOW);
+         ItemStack itemStack = entity.getItemInHand(interactionHand);
++        java.util.List<Projectile> list = null; // Paper - Make rangedAttack return a Projectile
+         if (entity.isHolding(Items.CROSSBOW)) {
+-            CrossbowItem.performShooting(entity.level(), entity, interactionHand, itemStack, speed, (float)(14 - entity.level().getDifficulty().getId() * 4));
++            list = CrossbowItem.performShooting(entity.level(), entity, interactionHand, itemStack, speed, (float)(14 - entity.level().getDifficulty().getId() * 4)); // Paper - Make rangedAttack return a Projectile
+         }
+ 
+         this.onCrossbowAttackPerformed();
++        return list == null || list.isEmpty() ? null : list.get(0); // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     default void shootCrossbowProjectile(LivingEntity entity, LivingEntity target, Projectile projectile, float multishotSpray, float speed) {
+diff --git a/src/main/java/net/minecraft/world/entity/monster/Drowned.java b/src/main/java/net/minecraft/world/entity/monster/Drowned.java
+index 01897af1e6253b987734a24c052daf2ce1314092..f4a877775ce9deed36ce46fb26ed4c138127d589 100644
+--- a/src/main/java/net/minecraft/world/entity/monster/Drowned.java
++++ b/src/main/java/net/minecraft/world/entity/monster/Drowned.java
+@@ -243,7 +243,7 @@ public class Drowned extends Zombie implements RangedAttackMob {
+     }
+ 
+     @Override
+-    public void performRangedAttack(LivingEntity target, float pullProgress) {
++    public net.minecraft.world.entity.projectile.Projectile performRangedAttack(LivingEntity target, float pullProgress) { // Paper - Make rangedAttack return a Projectile
+         ThrownTrident entitythrowntrident = new ThrownTrident(this.level(), this, this.getItemInHand(net.minecraft.world.entity.projectile.ProjectileUtil.getWeaponHoldingHand(this, Items.TRIDENT))); // CraftBukkit - Use Trident in hand like skeletons (SPIGOT-7025)
+         double d0 = target.getX() - this.getX();
+         double d1 = target.getY(0.3333333333333333D) - entitythrowntrident.getY();
+@@ -253,6 +253,7 @@ public class Drowned extends Zombie implements RangedAttackMob {
+         entitythrowntrident.shoot(d0, d1 + d3 * 0.20000000298023224D, d2, 1.6F, (float) (14 - this.level().getDifficulty().getId() * 4));
+         this.playSound(SoundEvents.DROWNED_SHOOT, 1.0F, 1.0F / (this.getRandom().nextFloat() * 0.4F + 0.8F));
+         this.level().addFreshEntity(entitythrowntrident);
++        return entitythrowntrident; // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     public void setSearchingForLand(boolean targetingUnderwater) {
+diff --git a/src/main/java/net/minecraft/world/entity/monster/Illusioner.java b/src/main/java/net/minecraft/world/entity/monster/Illusioner.java
+index fb84b35e34063075e69e00e430bc00e7c3b9d62c..d480caeec13fd27d1930145ef98cecb38a46f7d7 100644
+--- a/src/main/java/net/minecraft/world/entity/monster/Illusioner.java
++++ b/src/main/java/net/minecraft/world/entity/monster/Illusioner.java
+@@ -187,7 +187,7 @@ public class Illusioner extends SpellcasterIllager implements RangedAttackMob {
+     public void applyRaidBuffs(int wave, boolean unused) {}
+ 
+     @Override
+-    public void performRangedAttack(LivingEntity target, float pullProgress) {
++    public net.minecraft.world.entity.projectile.Projectile performRangedAttack(LivingEntity target, float pullProgress) { // Paper - Make rangedAttack return a Projectile
+         ItemStack itemstack = this.getProjectile(this.getItemInHand(ProjectileUtil.getWeaponHoldingHand(this, Items.BOW)));
+         AbstractArrow entityarrow = ProjectileUtil.getMobArrow(this, itemstack, pullProgress);
+         double d0 = target.getX() - this.getX();
+@@ -200,7 +200,7 @@ public class Illusioner extends SpellcasterIllager implements RangedAttackMob {
+         org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(this, this.getMainHandItem(), entityarrow.getPickupItem(), entityarrow, target.getUsedItemHand(), 0.8F, true);
+         if (event.isCancelled()) {
+             event.getProjectile().remove();
+-            return;
++            return null; // Paper - Make rangedAttack return a Projectile
+         }
+ 
+         if (event.getProjectile() == entityarrow.getBukkitEntity()) {
+@@ -208,6 +208,7 @@ public class Illusioner extends SpellcasterIllager implements RangedAttackMob {
+         }
+         // Paper end - EntityShootBowEvent
+         this.playSound(SoundEvents.SKELETON_SHOOT, 1.0F, 1.0F / (this.getRandom().nextFloat() * 0.4F + 0.8F));
++        return entityarrow; // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/entity/monster/Pillager.java b/src/main/java/net/minecraft/world/entity/monster/Pillager.java
+index 05ed2f06a41f3b12e0432a37faf98d0b1fea7a8b..d71dadc092ffcee20ee923e967ccc00d2f90c21e 100644
+--- a/src/main/java/net/minecraft/world/entity/monster/Pillager.java
++++ b/src/main/java/net/minecraft/world/entity/monster/Pillager.java
+@@ -191,8 +191,8 @@ public class Pillager extends AbstractIllager implements CrossbowAttackMob, Inve
+     }
+ 
+     @Override
+-    public void performRangedAttack(LivingEntity target, float pullProgress) {
+-        this.performCrossbowAttack(this, 1.6F);
++    public net.minecraft.world.entity.projectile.Projectile performRangedAttack(LivingEntity target, float pullProgress) { // Paper - Make rangedAttack return a Projectile
++        return this.performCrossbowAttack(this, 1.6F); // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/entity/monster/RangedAttackMob.java b/src/main/java/net/minecraft/world/entity/monster/RangedAttackMob.java
+index 6c3162606ccf799e99d591da33fd649847db54b8..ef42b8450214c31eceb0d531615501a62ab1b0ef 100644
+--- a/src/main/java/net/minecraft/world/entity/monster/RangedAttackMob.java
++++ b/src/main/java/net/minecraft/world/entity/monster/RangedAttackMob.java
+@@ -3,5 +3,5 @@ package net.minecraft.world.entity.monster;
+ import net.minecraft.world.entity.LivingEntity;
+ 
+ public interface RangedAttackMob {
+-    void performRangedAttack(LivingEntity target, float pullProgress);
++    net.minecraft.world.entity.projectile.Projectile performRangedAttack(LivingEntity target, float pullProgress); // Paper - Make rangedAttack return a Projectile
+ }
+diff --git a/src/main/java/net/minecraft/world/entity/monster/Witch.java b/src/main/java/net/minecraft/world/entity/monster/Witch.java
+index f9ffc5f4cbfdcf5c7351a883d2e5c26492175283..6b53c4ba8da8bc448e93999381fe71888c163b15 100644
+--- a/src/main/java/net/minecraft/world/entity/monster/Witch.java
++++ b/src/main/java/net/minecraft/world/entity/monster/Witch.java
+@@ -221,7 +221,7 @@ public class Witch extends Raider implements RangedAttackMob {
+     }
+ 
+     @Override
+-    public void performRangedAttack(LivingEntity target, float pullProgress) {
++    public net.minecraft.world.entity.projectile.Projectile performRangedAttack(LivingEntity target, float pullProgress) { // Paper - Make rangedAttack return a Projectile
+         if (!this.isDrinkingPotion()) {
+             Vec3 vec3d = target.getDeltaMovement();
+             double d0 = target.getX() + vec3d.x - this.getX();
+@@ -250,7 +250,7 @@ public class Witch extends Raider implements RangedAttackMob {
+             ItemStack potion = PotionUtils.setPotion(new ItemStack(Items.SPLASH_POTION), potionregistry);
+             com.destroystokyo.paper.event.entity.WitchThrowPotionEvent event = new com.destroystokyo.paper.event.entity.WitchThrowPotionEvent((org.bukkit.entity.Witch) this.getBukkitEntity(), (org.bukkit.entity.LivingEntity) target.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(potion));
+             if (!event.callEvent()) {
+-                return;
++                return null; // Paper - Make rangedAttack return a Projectile
+             }
+             potion = org.bukkit.craftbukkit.inventory.CraftItemStack.asNMSCopy(event.getPotion());
+             ThrownPotion entitypotion = new ThrownPotion(this.level(), this);
+@@ -263,7 +263,9 @@ public class Witch extends Raider implements RangedAttackMob {
+             }
+ 
+             this.level().addFreshEntity(entitypotion);
++            return entitypotion; // Paper - Make rangedAttack return a Projectile
+         }
++        return null; // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/entity/monster/piglin/Piglin.java b/src/main/java/net/minecraft/world/entity/monster/piglin/Piglin.java
+index a9813da7f2b248f98f22e0ad2e7842915025ec12..fa7a03af64675b46dd289187d430f0f615bbc261 100644
+--- a/src/main/java/net/minecraft/world/entity/monster/piglin/Piglin.java
++++ b/src/main/java/net/minecraft/world/entity/monster/piglin/Piglin.java
+@@ -370,8 +370,8 @@ public class Piglin extends AbstractPiglin implements CrossbowAttackMob, Invento
+     }
+ 
+     @Override
+-    public void performRangedAttack(LivingEntity target, float pullProgress) {
+-        this.performCrossbowAttack(this, 1.6F);
++    public net.minecraft.world.entity.projectile.Projectile performRangedAttack(LivingEntity target, float pullProgress) { // Paper - Make rangedAttack return a Projectile
++        return this.performCrossbowAttack(this, 1.6F); // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/item/CrossbowItem.java b/src/main/java/net/minecraft/world/item/CrossbowItem.java
+index f3a428f80c265639250114498b10067b4bf1ada1..6e8129cdf32156beb345a4ea3b23af3b89446be7 100644
+--- a/src/main/java/net/minecraft/world/item/CrossbowItem.java
++++ b/src/main/java/net/minecraft/world/item/CrossbowItem.java
+@@ -223,10 +223,10 @@ public class CrossbowItem extends ProjectileWeaponItem implements Vanishable {
+         });
+     }
+ 
+-    private static void shootProjectile(Level world, LivingEntity shooter, InteractionHand hand, ItemStack crossbow, ItemStack projectile, float soundPitch, boolean creative, float speed, float divergence, float simulated) {
++    private static Projectile shootProjectile(Level world, LivingEntity shooter, InteractionHand hand, ItemStack crossbow, ItemStack projectile, float soundPitch, boolean creative, float speed, float divergence, float simulated) { // Paper - Make rangedAttack return a Projectile
+         if (!world.isClientSide) {
+             boolean flag1 = projectile.is(Items.FIREWORK_ROCKET);
+-            Object object;
++            Projectile object;
+ 
+             if (flag1) {
+                 object = new FireworkRocketEntity(world, projectile, shooter, shooter.getX(), shooter.getEyeY() - 0.15000000596046448D, shooter.getZ(), true);
+@@ -241,20 +241,20 @@ public class CrossbowItem extends ProjectileWeaponItem implements Vanishable {
+             if (shooter instanceof CrossbowAttackMob) {
+                 CrossbowAttackMob icrossbow = (CrossbowAttackMob) shooter;
+ 
+-                icrossbow.shootCrossbowProjectile(icrossbow.getTarget(), crossbow, (Projectile) object, simulated);
++                icrossbow.shootCrossbowProjectile(icrossbow.getTarget(), crossbow, object, simulated);
+             } else {
+                 Vec3 vec3d = shooter.getUpVector(1.0F);
+                 Quaternionf quaternionf = (new Quaternionf()).setAngleAxis((double) (simulated * 0.017453292F), vec3d.x, vec3d.y, vec3d.z);
+                 Vec3 vec3d1 = shooter.getViewVector(1.0F);
+                 Vector3f vector3f = vec3d1.toVector3f().rotate(quaternionf);
+ 
+-                ((Projectile) object).shoot((double) vector3f.x(), (double) vector3f.y(), (double) vector3f.z(), speed, divergence);
++                object.shoot((double) vector3f.x(), (double) vector3f.y(), (double) vector3f.z(), speed, divergence);
+             }
+             // CraftBukkit start
+-            org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(shooter, crossbow, projectile, (Entity) object, shooter.getUsedItemHand(), soundPitch, true);
++            org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(shooter, crossbow, projectile, object, shooter.getUsedItemHand(), soundPitch, true);
+             if (event.isCancelled()) {
+                 event.getProjectile().remove();
+-                return;
++                return null; // Paper - Make rangedAttack return a Projectile
+             }
+             // CraftBukkit end
+ 
+@@ -262,17 +262,19 @@ public class CrossbowItem extends ProjectileWeaponItem implements Vanishable {
+                 entityliving1.broadcastBreakEvent(hand);
+             });
+             // CraftBukkit start
+-            if (event.getProjectile() == ((Entity) object).getBukkitEntity()) {
++            if (event.getProjectile() == object.getBukkitEntity()) {
+                 if (!world.addFreshEntity((Entity) object)) {
+                     if (shooter instanceof ServerPlayer) {
+                         ((ServerPlayer) shooter).getBukkitEntity().updateInventory();
+                     }
+-                    return;
++                    return null; // Paper - Make rangedAttack return a Projectile
+                 }
+             }
+             // CraftBukkit end
+             world.playSound((Player) null, shooter.getX(), shooter.getY(), shooter.getZ(), SoundEvents.CROSSBOW_SHOOT, SoundSource.PLAYERS, 1.0F, soundPitch);
++            return object; // Paper - Make rangedAttack return a Projectile
+         }
++        return null; // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     private static AbstractArrow getArrow(Level world, LivingEntity entity, ItemStack crossbow, ItemStack arrow) {
+@@ -294,26 +296,27 @@ public class CrossbowItem extends ProjectileWeaponItem implements Vanishable {
+         return entityarrow;
+     }
+ 
+-    public static void performShooting(Level world, LivingEntity entity, InteractionHand hand, ItemStack stack, float speed, float divergence) {
++    public static List<Projectile> performShooting(Level world, LivingEntity entity, InteractionHand hand, ItemStack stack, float speed, float divergence) { // Paper - Make rangedAttack return a Projectile
+         List<ItemStack> list = CrossbowItem.getChargedProjectiles(stack);
+         float[] afloat = CrossbowItem.getShotPitches(entity.getRandom());
+-
++        List<Projectile> projectiles =  Lists.newArrayList(); // Paper - Make rangedAttack return a Projectile
+         for (int i = 0; i < list.size(); ++i) {
+             ItemStack itemstack1 = (ItemStack) list.get(i);
+             boolean flag = entity instanceof Player && ((Player) entity).getAbilities().instabuild;
+ 
+             if (!itemstack1.isEmpty()) {
+                 if (i == 0) {
+-                    CrossbowItem.shootProjectile(world, entity, hand, stack, itemstack1, afloat[i], flag, speed, divergence, 0.0F);
++                    projectiles.add(CrossbowItem.shootProjectile(world, entity, hand, stack, itemstack1, afloat[i], flag, speed, divergence, 0.0F)); // Paper - Make rangedAttack return a Projectile
+                 } else if (i == 1) {
+-                    CrossbowItem.shootProjectile(world, entity, hand, stack, itemstack1, afloat[i], flag, speed, divergence, -10.0F);
++                    projectiles.add(CrossbowItem.shootProjectile(world, entity, hand, stack, itemstack1, afloat[i], flag, speed, divergence, -10.0F)); // Paper - Make rangedAttack return a Projectile
+                 } else if (i == 2) {
+-                    CrossbowItem.shootProjectile(world, entity, hand, stack, itemstack1, afloat[i], flag, speed, divergence, 10.0F);
++                    projectiles.add(CrossbowItem.shootProjectile(world, entity, hand, stack, itemstack1, afloat[i], flag, speed, divergence, 10.0F)); // Paper - Make rangedAttack return a Projectile
+                 }
+             }
+         }
+ 
+         CrossbowItem.onCrossbowShot(world, entity, stack);
++        return projectiles; // Paper - Make rangedAttack return a Projectile
+     }
+ 
+     private static float[] getShotPitches(RandomSource random) {

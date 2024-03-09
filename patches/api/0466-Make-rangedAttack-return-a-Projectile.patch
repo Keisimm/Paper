@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Keisimm <michal6444t@gmail.com>
+Date: Sat, 9 Mar 2024 04:50:59 +0100
+Subject: [PATCH] Make rangedAttack return a Projectile
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/entity/RangedEntity.java b/src/main/java/com/destroystokyo/paper/entity/RangedEntity.java
+index a087a04c525ea14b197c65063b43ebf097ddc5c2..d6f169ce45f4ac5b37ac2988ea2b5e8cf0a179d8 100644
+--- a/src/main/java/com/destroystokyo/paper/entity/RangedEntity.java
++++ b/src/main/java/com/destroystokyo/paper/entity/RangedEntity.java
+@@ -2,6 +2,7 @@ package com.destroystokyo.paper.entity;
+ 
+ import org.bukkit.entity.LivingEntity;
+ import org.bukkit.entity.Mob;
++import org.bukkit.entity.Projectile;
+ import org.jetbrains.annotations.NotNull;
+ 
+ public interface RangedEntity extends Mob {
+@@ -12,7 +13,7 @@ public interface RangedEntity extends Mob {
+      * @param charge How "charged" the attack is (how far back the bow was pulled for Bow attacks).
+      *               This should be a value between 0 and 1, represented as targetDistance/maxDistance.
+      */
+-    void rangedAttack(@NotNull LivingEntity target, float charge);
++    Projectile rangedAttack(@NotNull LivingEntity target, float charge);
+ 
+     /**
+      * Sets that the Entity is "charging" up an attack, by raising its hands
